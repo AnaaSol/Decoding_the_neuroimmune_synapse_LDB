@@ -1,0 +1,256 @@
+# ============================================================================
+# Pipeline Configuration — LBD Neuroimmune Synapse Study
+# ============================================================================
+# Single source of truth for all dataset paths, QC thresholds, analysis
+# parameters, and condition labels.
+#
+# HOW TO USE:
+#   R scripts:      cfg <- yaml::read_yaml("config/pipeline_config.yaml")
+#   Python scripts: import yaml; cfg = yaml.safe_load(open("config/pipeline_config.yaml"))
+#   Snakemake:      configfile: "config/pipeline_config.yaml"
+#
+# IMPORTANT: Do NOT hardcode values that appear here into scripts.
+#   Hardcoded condition labels ("PD", "Control") were the root cause of D1
+#   (the Figure 4 condition mislabelling defect).
+# ============================================================================
+
+project:
+  name: "Decoding_the_neuroimmune_synapse_LDB"
+  dir: "/home/ana/Desktop/Decoding_the_neuroimmune_synapse_LDB"
+  seed: 42
+
+# ----------------------------------------------------------------------------
+# Dataset provenance
+# ----------------------------------------------------------------------------
+datasets:
+  gwas:
+    accession: "GCST90001390"
+    citation: "Chia R, et al. Nat Genet 2021;53:294-303"
+    n_cases: 2591
+    n_controls: 4027
+    n_total: 6618          # Use this for MAGMA --N; 2591 (cases only) is WRONG
+    genome_build: "GRCh38"
+    raw_file: "data/LBD_GWAS_harmonised.tsv.gz"
+    metadata_file: "data/LBD_GWAS_metadata.yaml"
+
+  csf_scrna:
+    accession: "GSE161192"
+    citation: "Gate D, et al. Science 2021;374(6569):868-874"
+    n_donors: 2
+    raw_dir: "data/GSE161192_raw"
+    processed_dir: "data/GSE161192_processed"
+    samples:
+      P1U: {gsm_rna: "GSM4905012", gsm_tcr: "GSM4891327", patient: "P1", stimulation: "Unstimulated"}
+      P1S: {gsm_rna: "GSM4905013", gsm_tcr: "GSM4891328", patient: "P1", stimulation: "Stimulated"}
+      P2U: {gsm_rna: "GSM4905015", gsm_tcr: "GSM4891329", patient: "P2", stimulation: "Unstimulated"}
+      P2S: {gsm_rna: "GSM4905014", gsm_tcr: "GSM4891330", patient: "P2", stimulation: "Stimulated"}
+
+  csf_scrna_large:
+    accession: "GSE141578"
+    citation: "Gate D, et al. Science 2021;374(6569):868-874"   # same paper as GSE161192
+    n_hc: 11
+    n_disease: 11    # 9 PD + 2 DLB
+    raw_dir: "data/GSE141578_raw/csf_10x"
+    processed_dir: "data/GSE141578_processed"
+    # Per-sample diagnosis verified from individual GEO GSM records (2026-08-18)
+    # CSF32 was previously excluded as "not reported" — GSM4404059 lists it as
+    # "diagnosis: healthy control". Do not exclude it.
+    sample_groups:
+      HC:  ["CSF1", "CSF3", "CSF4", "CSF8", "CSF12", "CSF13", "CSF16", "CSF20", "CSF23", "CSF28", "CSF32"]
+      PD:  ["CSF7", "CSF10", "CSF14", "CSF21", "CSF24", "CSF26", "CSF27", "CSF29", "CSF30"]
+      DLB: ["CSF25", "CSF31"]
+    disease_group: "disease = PD + DLB combined vs HC"
+    note: >
+      Larger, unstimulated CSF cohort from the same Gate et al. 2021 paper as
+      GSE161192. The paper's headline CXCR4/CXCL12 finding was made in this
+      cohort, not in GSE161192 (small, 2-donor, in-vitro-stimulated). Do not
+      conflate results from the two datasets.
+
+  cortex_snrna:
+    accession: "GSE178146"
+    citation: "Feleke R, et al. Acta Neuropathol 2021;142:449-474"
+    brain_region: "anterior cingulate cortex"    # NOT substantia nigra
+    n_per_group: 7
+    raw_dir: "data/GSE178146_raw"
+    processed_dir: "data/GSE178146_processed"
+    # Verified sample→group mapping from GEO individual sample pages (2026-07-16)
+    # CRITICAL: PDC05–PDC91 are Controls despite "PD" prefix — do NOT use grepl("^C")
+    sample_groups:
+      Control: ["C36", "C48", "PDC05", "PDC22", "PDC34", "PDC87", "PDC91"]
+      DLB:     ["PD060", "PD115", "PD163", "PD294", "PD332", "PD566", "PD706"]
+      PDD:     ["PD341", "PD366", "PD415", "PD501", "PD531", "PD563", "PD678"]
+      PD:      ["PD413", "PD416", "PD523", "PD666", "PD683", "PD732", "PD747"]
+    primary_comparison: "DLB_vs_Control"
+    secondary_comparisons: ["PDD_vs_Control", "PD_vs_Control"]
+
+# ----------------------------------------------------------------------------
+# Phase 1: Genetic prioritization (MAGMA)
+# ----------------------------------------------------------------------------
+phase1:
+  magma_filter_p_threshold: 1.0   # 1.0 = no filter = all SNPs (correct for gene-based test)
+                                   # The original 1e-5 filtered to 454 SNPs → only 34 genes
+  magma_model: "snpwise-mean"
+  magma_reference: "data/reference/g1000_eur"
+  magma_gene_loc: "data/reference/NCBI38.gene.loc"
+  magma_output_prefix: "data/magma_results/LBD_gene_analysis"
+  magma_tool: "tools/magma"
+  gene_set_percentiles: [1, 5, 10, 25]
+  bonferroni_alpha: 0.05           # applied genome-wide (~18,000 genes), not to 34
+
+# ----------------------------------------------------------------------------
+# Phase 1b: chr19 APOE/BCAM locus conditional analysis (GCTA-COJO)
+# ----------------------------------------------------------------------------
+phase1b_gcta_cojo:
+  region_chrom: 19
+  region_start_bp: 44300000   # GRCh38, matches harmonised GWAS build
+  region_end_bp: 45400000
+  cojo_p_threshold: 5e-08     # --cojo-slct stepwise selection threshold
+  bcam_top_snp: "rs28399637"  # BCAM's most-associated SNP (data/magma_results/LBD_gene_analysis.genes.annot)
+  ref_panel: "data/reference/g1000_eur"   # GRCh37/hg19 -- always match by rsID, never by BP (D13/D23)
+
+# ----------------------------------------------------------------------------
+# Phase 1c: eQTL colocalization (coloc, GWAS-vs-GTEx brain ACC eQTL)
+# ----------------------------------------------------------------------------
+# Tests whether the 7 Bonferroni-significant MAGMA genes, plus the 3 candidate
+# DLB cortical receptors from Phase 3, show a shared causal variant between
+# LBD genetic risk and gene expression in the SAME tissue as GSE178146
+# (anterior cingulate cortex) -- addresses REPORT.md Sec 5.8/12.2 gap #2.
+# Coordinates and Ensembl IDs verified via Ensembl REST /lookup/symbol (GRCh38).
+phase1c_coloc:
+  cis_window_bp: 1000000   # +/- 1Mb around gene body, standard cis-eQTL window
+  eqtl_source:
+    catalogue_study: "GTEx"
+    tissue: "brain_anterior_cingulate_cortex"   # tissue-matched to GSE178146
+    dataset_id: "QTD000151"                      # gene expression ("ge"), n=147
+    ftp_url: "ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000015/QTD000151/QTD000151.all.tsv.gz"
+    sample_size: 147
+  gwas:
+    n_cases: 2591
+    n_controls: 4027
+    n_total: 6618
+  target_genes:
+    # MAGMA Bonferroni-significant (chr19 APOE locus + MSTO1/MMRN1/SNCA)
+    - {symbol: "PVRL2",  ensembl_id: "ENSG00000130202", chrom: 19, start: 44846175,  end: 44890134,  source: "magma_bonferroni"}
+    - {symbol: "APOE",   ensembl_id: "ENSG00000130203", chrom: 19, start: 44903787,  end: 44909396,  source: "magma_bonferroni"}
+    - {symbol: "TOMM40", ensembl_id: "ENSG00000130204", chrom: 19, start: 44890569,  end: 44903695,  source: "magma_bonferroni"}
+    - {symbol: "APOC1",  ensembl_id: "ENSG00000130208", chrom: 19, start: 44913133,  end: 44920054,  source: "magma_bonferroni"}
+    - {symbol: "MSTO1",  ensembl_id: "ENSG00000125459", chrom: 1,  start: 155563235, end: 155616644, source: "magma_bonferroni"}
+    - {symbol: "MMRN1",  ensembl_id: "ENSG00000138722", chrom: 4,  start: 89879532,  end: 89954629,  source: "magma_bonferroni"}
+    - {symbol: "SNCA",   ensembl_id: "ENSG00000145335", chrom: 4,  start: 89700345,  end: 89838321,  source: "magma_bonferroni"}
+    # Phase 3 candidate DLB cortical receptors
+    - {symbol: "TGFBR2", ensembl_id: "ENSG00000163513", chrom: 3,  start: 30606478,  end: 30694249,  source: "phase3_candidate_receptor"}
+    - {symbol: "LGALS9", ensembl_id: "ENSG00000168961", chrom: 17, start: 27629798,  end: 27649561,  source: "phase3_candidate_receptor"}
+    - {symbol: "CD86",   ensembl_id: "ENSG00000114013", chrom: 3,  start: 122055356, end: 122121557, source: "phase3_candidate_receptor"}
+
+  # Second eQTL source: T-cell eQTL (BLUEPRINT), for the same 10 genes -- the
+  # study's mechanistic hypothesis is specifically T-cell-mediated, so a
+  # T-cell eQTL is a more direct test than brain tissue alone.
+  eqtl_sources_extra:
+    - name: "blueprint_tcell"
+      catalogue_study: "BLUEPRINT"
+      tissue: "CD4+ T cell (naive), gene expression"
+      dataset_id: "QTD000031"     # verified against tabix_ftp_paths.tsv (eQTL-Catalogue-resources)
+      ftp_url: "ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000002/QTD000031/QTD000031.all.tsv.gz"
+      sample_size: 167
+
+# ----------------------------------------------------------------------------
+# Phase 1d: MAGMA competitive gene-set analysis (immune pathways)
+# ----------------------------------------------------------------------------
+# Tests whether LBD genetic risk is enriched, as a pathway, in curated immune
+# gene sets -- a competitive gene-set test has much more power than the
+# per-gene Bonferroni test to detect polygenic convergence with immune
+# function, even when no single gene reaches genome-wide significance.
+# Gene sets are pre-specified from pathways already discussed in the
+# manuscript's own biological narrative (Th17/IL-17A, TCR/clonal expansion,
+# cytokine receptors, CXCL12-CXCR4 chemokine signaling, OSM/JAK-STAT) --
+# NOT selected post-hoc after seeing results, to keep the multiple-testing
+# correction (Bonferroni over 5 sets = p<0.01) honest.
+phase1d_geneset:
+  kegg_pathways:
+    - {id: "hsa04659", label: "Th17 cell differentiation"}
+    - {id: "hsa04660", label: "T cell receptor signaling pathway"}
+    - {id: "hsa04060", label: "Cytokine-cytokine receptor interaction"}
+    - {id: "hsa04062", label: "Chemokine signaling pathway"}
+    - {id: "hsa04630", label: "JAK-STAT signaling pathway"}
+  bonferroni_alpha: 0.05   # applied over the 5 pre-specified sets (0.05/5 = 0.01)
+
+# ----------------------------------------------------------------------------
+# Phase 2: CSF scRNA-seq / TCR-seq QC and DE
+# ----------------------------------------------------------------------------
+phase2:
+  qc:
+    n_feature_min: 200
+    n_feature_max: 6000    # Raised from 2500; activated T cells routinely express 3000-6000 genes
+    n_count_max: 10000
+    percent_mt_max: 15
+  normalization:
+    method: "LogNormalize"
+    scale_factor: 10000
+    n_variable_features: 2000
+    n_pcs: 20
+    vars_to_regress: ["percent.mt", "nCount_RNA"]
+  clustering:
+    resolution: 0.5
+  clonal_expansion:
+    clone_call: "aa"           # amino acid CDR3; less stringent than nucleotide-level
+    min_cells_primary: 2       # primary expansion threshold
+    min_cells_strict: 3        # sensitivity / stricter threshold
+  de_wilcoxon:                 # CAUTION: pseudo-replication with N=2 donors
+    logfc_threshold: 0.1
+    min_pct: 0.05
+    padj_threshold: 0.05
+  de_pseudobulk:               # Preferred; donor-aware
+    design: "~stimulation + expansion_status"
+    min_cells_per_group: 5
+    min_count_per_gene: 5
+    padj_threshold: 0.05
+
+# ----------------------------------------------------------------------------
+# Phase 3: Cortical snRNA-seq
+# ----------------------------------------------------------------------------
+phase3:
+  qc:
+    n_feature_min: 200
+    n_feature_max: 8000
+    n_count_min: 200
+    n_count_max: 50000
+    percent_mt_max: 5
+  normalization:
+    n_variable_features: 3000
+  integration:
+    max_cells_per_sample: 2000    # downsampling cap (manuscript incorrectly states 5000)
+    harmony_group_by: "sample"
+    n_pcs: 30
+  clustering:
+    resolution: 0.5
+  neuronal_markers:
+    excitatory: ["SLC17A7", "CAMK2A"]
+    inhibitory: ["GAD1", "GAD2"]
+
+# ----------------------------------------------------------------------------
+# Phase 4: Weighted interactomics
+# ----------------------------------------------------------------------------
+phase4:
+  network:
+    top_n_for_plot: 20
+    min_z_for_highlight: 2.0
+    score_column: "Prioritization_Score"   # NOT "Causality_Score" — this is heuristic weighting
+    score_formula: "Max_Neuronal_Expression * (1 + max(0, Receptor_Risk_Z))"
+    output_dir: "results_final"
+
+# ----------------------------------------------------------------------------
+# Visualization
+# ----------------------------------------------------------------------------
+visualization:
+  condition_colors:
+    Control: "#3498db"
+    DLB:     "#e74c3c"
+    PDD:     "#e67e22"
+    PD:      "#9b59b6"
+  condition_order: ["Control", "DLB", "PDD", "PD"]
+  expansion_colors:
+    Expanded:    "#e74c3c"
+    NonExpanded: "#95a5a6"
+  node_colors:
+    T_Cell_Ligand:  "#3498db"
+    Neuron_Receptor: "#e74c3c"
