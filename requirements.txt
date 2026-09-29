@@ -1,0 +1,13 @@
+# Python requirements — LBD Neuroimmune Synapse pipeline
+# Install with: pip install -r requirements.txt
+# Or via conda: conda env create -f environment.yml
+
+# Core data
+pandas==1.5.3
+numpy==1.24.3
+
+# Config parsing (used in all Python scripts)
+PyYAML==6.0.1
+
+# Standard library (listed for clarity; already in Python ≥ 3.3)
+# argparse — used in 01_filter_gwas_data.py (stdlib, no install needed)
