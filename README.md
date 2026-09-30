@@ -21,8 +21,10 @@ Para el flujo completo fase por fase, ver **[`PIPELINE_DIAGRAM.md`](PIPELINE_DIA
 2. **BCAM descartado formalmente como gen de riesgo independiente** — MAGMA genome-wide (18.523 genes) + GCTA-COJO condicional muestran que su asociación es enteramente atribuible al desequilibrio de ligamiento con el locus APOE (p condicional: 6,6×10⁻¹³ → 0,56).
 3. **El eje CXCL12–CXCR4 no replica** en ninguna de las dos cohortes de LCR, incluyendo la cohorte de origen de esa hipótesis publicada.
 4. **MMRN1 colocaliza fuertemente con expresión en linfocitos T CD4+** (PP4=0,97) pero no en corteza cerebral (variantes distintas) — evidencia de convergencia genética-inmune tejido-específica.
-5. **LIFR, LGALS9 y CD86 muestran un gradiente de expresión significativo y monótono** a lo largo del espectro clínico Control→PD→PDD→DLB (pseudobulk DESeq2, padj<0,05). LIFR es el receptor de OSM, la interacción mejor priorizada del estudio.
+5. **LIFR, LGALS9 y CD86 muestran un gradiente de expresión significativo y monótono** a lo largo del espectro clínico Control→PD→PDD→DLB (pseudobulk DESeq2, padj<0,05).
 6. Sin evidencia de enriquecimiento poligénico en pathways inmunes (Th17, TCR, citoquinas, quimiocinas, JAK-STAT) — resultado nulo, reportado como tal.
+7. **Mendelian randomization y SuSiE-coloc confirman independientemente el hallazgo de MMRN1** (beta=-0,29, padj=2,5×10⁻¹⁰ en linfocitos T; señal específica validada a nivel de credible set).
+8. **NicheNet (análisis direccional) revierte la interpretación mecanística del eje OSM–LIFR**: OSM rankea 28 de 29 ligandos candidatos por actividad dirigida sobre la respuesta transcripcional de DLB en neuronas ACC; IL17A rankea último. El gradiente de severidad de LIFR (hallazgo #5) se mantiene, pero sin evidencia de que OSM lo explique.
 
 ## Arquitectura del pipeline
 
@@ -32,11 +34,16 @@ Para el flujo completo fase por fase, ver **[`PIPELINE_DIAGRAM.md`](PIPELINE_DIA
 | **1b — Resolución BCAM** | GCTA-COJO condicional en el locus chr19 | `scripts/phase1_genetic_prior/05-06` |
 | **1c — Colocalización GWAS-eQTL** | coloc.abf vs. GTEx corteza y BLUEPRINT células T (tabix remoto, sin descarga masiva) | `scripts/phase1_genetic_prior/07-10` |
 | **1d — Enrichment de pathways** | MAGMA gene-set sobre pathways inmunes de KEGG (pre-especificados) | `scripts/phase1_genetic_prior/11-12` |
+| **1e — Mendelian randomization** | Wald ratio / IVW (instrumentos GCTA-COJO para chr19) | `scripts/phase1_genetic_prior/13` |
+| **1f — SuSiE-coloc (fine-mapping)** | Colocalización multi-variante para MMRN1 | `scripts/phase1_genetic_prior/14` |
 | **2a — Perfilado inmune LCR** | scRNA-seq+TCR-seq, clonalidad, DE Wilcoxon+pseudobulk | `scripts/phase2_immune_profiling/01-03` |
 | **2b — Réplica independiente LCR** | Pseudobulk DESeq2 a nivel de donante en cohorte más grande | `scripts/phase2_immune_profiling/04` |
+| **2c — Sensibilidad a batch** | DESeq2 sin covariable de lote + subset PD-only | `scripts/phase2_immune_profiling/05` |
 | **3 — Vulnerabilidad neuronal cortical** | snRNA-seq, subtipificación neuronal por capa, mapeo ligando-receptor | `scripts/phase3_neuronal_vulnerability/01-04` |
 | **3b — Gradiente de severidad clínica** | DESeq2 pseudobulk, severidad ordinal pre-especificada | `scripts/phase3_neuronal_vulnerability/05` |
+| **3c — Actividad ligando dirigida** | NicheNet (entorno conda aislado, ver Limitaciones) | `scripts/phase3_neuronal_vulnerability/06` |
 | **4 — Red de priorización integrada** | Score heurístico expresión × riesgo genético (explícitamente no causal) | `scripts/phase4_weighted_interactomics/01` |
+| **4b — Verificación por permutación** | Null empírico del ranking (10.000 permutaciones) | `scripts/phase4_weighted_interactomics/02` |
 
 Todo el pipeline está orquestado por `Snakefile` + `config/pipeline_config.yaml` (única fuente de verdad para rutas, umbrales y etiquetas — ningún valor debería estar hardcodeado en los scripts en producción).
 
@@ -72,6 +79,16 @@ snakemake validate --cores 1
 - **Python 3.10+** — `requirements.txt`.
 - **MAGMA v1.10** (`tools/magma`), **GCTA v1.94+**, **PLINK v1.9**, **tabix/bgzip** (htslib).
 - **Snakemake ≥7.32** (no incluido en `environment.yml` por defecto del sistema; ver nota arriba).
+- **Docker** (opcional) — ver `Dockerfile`: imagen autocontenida (2,1GB) para el critical path de Fase 1/1b/1c (MAGMA+GCTA+PLINK+coloc+MR vía conda-forge/bioconda, sin depender del entorno de esta máquina). Validada: reproduce `coloc_summary.csv` byte a byte contra el resultado del host. Nota: con Docker instalado vía snap, el bind-mount de volúmenes fuera de `$HOME` puede fallar silenciosamente (confinamiento de snap) — montar desde una ruta dentro de `$HOME` o extraer resultados con `docker cp`/redirección de stdout en vez de `-v /tmp/...`.
+
+```bash
+docker build -t lbd-neuroimmune-phase1 .
+docker run --rm \
+  -v "$(pwd)/data/coloc/gwas:/pipeline/data/coloc/gwas:ro" \
+  -v "$(pwd)/data/coloc/eqtl:/pipeline/data/coloc/eqtl:ro" \
+  lbd-neuroimmune-phase1 \
+  bash -c "cd /pipeline && Rscript scripts/phase1_genetic_prior/09_run_coloc.R brain_acc"
+```
 
 ## Estructura del repositorio
 
@@ -99,7 +116,7 @@ snakemake validate --cores 1
 - El score de Fase 4 es una heurística de expresión ponderada por riesgo genético, **no un método de inferencia causal** (no hay Mendelian randomization, mediación, ni fine-mapping tipo SuSiE).
 - La colocalización (Fase 1c) usa coloc.abf estándar (un solo variante causal asumido por locus); el locus chr19 tiene 3 señales independientes reales (Fase 1b) — una limitación metodológica conocida, no oculta.
 - `scripts/utils/load_config.R` existe pero **no está actualmente invocado** por los scripts de fase — cada script todavía hardcodea su propia ruta de proyecto. Queda como trabajo pendiente si se refactoriza el pipeline.
-- NicheNet (inferencia direccional ligando-receptor) fue evaluado y **deliberadamente no instalado** esta sesión: su dependencia final requiere ggplot2≥4.0, una versión mayor incompatible con todos los gráficos existentes del pipeline (ver `archive/` para el historial de intentos).
+- NicheNet (inferencia direccional ligando-receptor) está instalado en un **entorno conda aislado** (`nichenet_env`), no en el entorno principal del pipeline, específicamente porque su dependencia final requiere ggplot2≥4.0 (incompatible con los gráficos existentes, que usan ggplot2 3.5.2). El script `scripts/phase3_neuronal_vulnerability/06_nichenet_ligand_activity.R` debe ejecutarse con ese entorno activado (`conda activate nichenet_env`, y siempre desde un directorio de trabajo distinto de la raíz del proyecto para evitar que `.Rprofile`/renv contaminen `.libPaths()` con paquetes de R 4.3.1 dentro de un entorno de R 4.3.3 — ver comentarios en el script). Resultado: OSM e IL17A rankean entre los últimos de 29 ligandos candidatos por actividad dirigida, revirtiendo la interpretación mecanística previa del eje OSM–LIFR (ver manuscrito, Fase 3c).
 
 ## Autoría
 
