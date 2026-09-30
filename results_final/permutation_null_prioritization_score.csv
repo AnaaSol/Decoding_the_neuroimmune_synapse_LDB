@@ -1,0 +1,2 @@
+"top_pair","n_permutations","pct_permutations_top_pair_stays_1st","mean_spearman_vs_expression_only_rank","observed_score","observed_Z"
+"OSM-LIFR",10000,83.68,0.955521470588235,0.759348819432207,0.20386
