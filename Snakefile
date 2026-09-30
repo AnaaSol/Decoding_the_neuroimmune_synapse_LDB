@@ -49,20 +49,32 @@ rule all:
         os.path.join(DATA_DIR, "coloc", "results", "coloc_PP3_PP4_summary_all_tissues.pdf"),
         # Phase 1d (MAGMA immune-pathway gene-set enrichment)
         os.path.join(DATA_DIR, "geneset_analysis", "LBD_immune_geneset.gsa.out"),
+        # Phase 1e/1f (Mendelian randomization, SuSiE-coloc)
+        os.path.join(DATA_DIR, "mr", "results", "mendelian_randomization_summary.csv"),
+        os.path.join(DATA_DIR, "susie_coloc", "MMRN1_susie_coloc_blueprint_tcell.csv"),
         # Phase 2
         os.path.join(DATA_DIR, "GSE161192_processed", "DEG_expanded_vs_nonexpanded_CD4.csv"),
         os.path.join(DATA_DIR, "GSE161192_processed", "DEG_pseudobulk_expanded_vs_nonexpanded_CD4.csv"),
         os.path.join(DATA_DIR, "GSE161192_processed", "expanded_CD4_upregulated_genes.txt"),
         os.path.join(DATA_DIR, "GSE161192_processed", "clonotype_size_table.csv"),
         os.path.join(DATA_DIR, "GSE141578_processed", "pseudobulk_DEG_disease_vs_HC.csv"),
+        # Phase 2c (batch sensitivity)
+        os.path.join(DATA_DIR, "GSE141578_processed", "pseudobulk_DEG_batch_sensitivity.csv"),
         # Phase 3
         os.path.join(DATA_DIR, "GSE178146_processed", "active_ligand_receptor_pairs.csv"),
         os.path.join(DATA_DIR, "GSE178146_processed", "receptor_expression_DLB_vs_Control.csv"),
         os.path.join(DATA_DIR, "GSE178146_processed", "receptor_expression_by_neuron_subtype.csv"),
         os.path.join(DATA_DIR, "GSE178146_processed", "receptor_doseresponse_pseudobulk.csv"),
+        # NOTE: Phase 3c (nichenet_ligand_activity) deliberately NOT in this
+        # default target list -- it requires the isolated `nichenet_env`
+        # conda environment (ggplot2>=4.0) and a manually-fetched 262MB prior
+        # model (data/nichenet_prior/, not produced by any rule). Run it
+        # explicitly: `snakemake nichenet_ligand_activity --cores 1`.
         # Phase 4
         os.path.join(RESULTS_DIR, "weighted_neuroimmune_network.csv"),
         os.path.join(RESULTS_DIR, "plots", "integrative_prioritization_network.pdf"),
+        # Phase 4b (permutation null)
+        os.path.join(RESULTS_DIR, "permutation_null_prioritization_score.csv"),
 
 
 # ── PHASE 1: Genetic Prioritization ─────────────────────────────────────────
@@ -296,6 +308,45 @@ rule run_magma_geneset:
         "bash {SCRIPTS_DIR}/phase1_genetic_prior/12_run_magma_geneset.sh > {log} 2>&1"
 
 
+# ── PHASE 1e/1f: Causal verification (MR, SuSiE-coloc) ──────────────────────
+
+rule run_mendelian_randomization:
+    """
+    Two-sample MR (Wald ratio / IVW via GCTA-COJO instruments for chr19).
+    Result: MMRN1 in T cells beta=-0.29, padj=2.5e-10; no instrument
+    (eQTL p<1e-5) for the rest of the panel in either tissue.
+    """
+    input:
+        expand(os.path.join(DATA_DIR, "coloc", "gwas", "{gene}_gwas.tsv"), gene=COLOC_GENES),
+        expand(os.path.join(DATA_DIR, "coloc", "eqtl", "{source}", "{gene}_eqtl_raw.tsv"),
+               source=COLOC_SOURCES, gene=COLOC_GENES)
+    output:
+        os.path.join(DATA_DIR, "mr", "results", "mendelian_randomization_summary.csv")
+    log:
+        os.path.join(LOGS_DIR, "phase1e_mendelian_randomization.log")
+    shell:
+        "Rscript {SCRIPTS_DIR}/phase1_genetic_prior/13_run_mendelian_randomization.R > {log} 2>&1"
+
+
+rule run_susie_coloc_mmrn1:
+    """
+    SuSiE-coloc fine-mapping for MMRN1 (multi-causal-variant, vs. coloc.abf's
+    single-variant assumption). Result: the credible set anchored on
+    rs7680557 (same lead SNP as coloc.abf/MR) colocalizes at PP4=0.977,
+    validating the simple coloc.abf PP4=0.97 as a specific signal, not a
+    blend across the locus's multiple signals.
+    """
+    input:
+        os.path.join(DATA_DIR, "coloc", "gwas", "MMRN1_gwas.tsv"),
+        os.path.join(DATA_DIR, "coloc", "eqtl", "blueprint_tcell", "MMRN1_eqtl_raw.tsv")
+    output:
+        os.path.join(DATA_DIR, "susie_coloc", "MMRN1_susie_coloc_blueprint_tcell.csv")
+    log:
+        os.path.join(LOGS_DIR, "phase1f_susie_coloc_tcell.log")
+    shell:
+        "Rscript {SCRIPTS_DIR}/phase1_genetic_prior/14_run_susie_coloc_mmrn1.R blueprint_tcell > {log} 2>&1"
+
+
 # ── PHASE 2: CSF Immune Profiling ──────────────────────────────────────────
 
 rule process_scrna:
@@ -383,6 +434,24 @@ rule gse141578_pseudobulk:
         os.path.join(LOGS_DIR, "phase2_gse141578_pseudobulk.log")
     shell:
         "Rscript {SCRIPTS_DIR}/phase2_immune_profiling/04_GSE141578_disease_vs_HC_pseudobulk.R "
+        "> {log} 2>&1"
+
+
+rule gse141578_batch_sensitivity:
+    """
+    Re-fits the GSE141578 pseudobulk matrix (a) without the batch covariate
+    and (b) PD-only vs HC (drops the 2 DLB samples, both in batch2). Result:
+    0 significant genes in both alternative models -- the CXCL12/CXCR4
+    non-replication does not depend on the batch-adjustment choice.
+    """
+    input:
+        os.path.join(DATA_DIR, "GSE141578_processed", "GSE141578_CD4_Tcells_seurat.rds")
+    output:
+        os.path.join(DATA_DIR, "GSE141578_processed", "pseudobulk_DEG_batch_sensitivity.csv")
+    log:
+        os.path.join(LOGS_DIR, "phase2c_batch_sensitivity.log")
+    shell:
+        "Rscript {SCRIPTS_DIR}/phase2_immune_profiling/05_GSE141578_batch_sensitivity.R "
         "> {log} 2>&1"
 
 
@@ -489,6 +558,34 @@ rule receptor_doseresponse:
         "> {log} 2>&1"
 
 
+rule nichenet_ligand_activity:
+    """
+    Directional ligand-activity analysis (NicheNet), run in an isolated
+    conda env (nichenet_env) so its ggplot2>=4.0 dependency never touches
+    this pipeline's main library (ggplot2 3.5.2). Result: OSM ranks 28/29
+    candidate ligands by directional activity (AUROC=0.508), IL17A ranks
+    29/29 -- reverses the mechanistic reading of OSM-LIFR from Phase 4.
+    IMPORTANT: must `cd` away from the project directory before invoking
+    this env's Rscript, or this project's own .Rprofile/renv activation
+    silently contaminates .libPaths() with the main env's R 4.3.1 packages
+    inside nichenet_env's R 4.3.3 -- causes confusing dyn.load failures
+    that look like missing dependencies but are actually a version clash.
+    """
+    input:
+        os.path.join(DATA_DIR, "nichenet_prior", "ligand_target_matrix_human.rds"),
+        os.path.join(DATA_DIR, "nichenet_prior", "lr_network_human.rds"),
+        os.path.join(PROJECT_DIR, "archive", "orphaned_nichenet_prep", "neuron_DLB_vs_Control_genomewide_DE.csv")
+    output:
+        os.path.join(DATA_DIR, "nichenet_results", "ligand_activities.csv")
+    log:
+        os.path.join(LOGS_DIR, "phase3c_nichenet.log")
+    shell:
+        "bash -c 'source $(conda info --base)/etc/profile.d/conda.sh && "
+        "conda activate nichenet_env && cd /tmp && "
+        "Rscript {SCRIPTS_DIR}/phase3_neuronal_vulnerability/06_nichenet_ligand_activity.R' "
+        "> {log} 2>&1"
+
+
 # ── PHASE 4: Weighted Interactomics ─────────────────────────────────────────
 
 rule weighted_interactomics:
@@ -508,6 +605,23 @@ rule weighted_interactomics:
         os.path.join(LOGS_DIR, "phase4_weighted_interactomics.log")
     shell:
         "Rscript {SCRIPTS_DIR}/phase4_weighted_interactomics/01_weighted_interactomics.R "
+        "> {log} 2>&1"
+
+
+rule permutation_null_prioritization:
+    """
+    Empirical null for the Prioritization Score: permutes receptor GWAS
+    Z-scores across candidate pairs (10,000x). Result: OSM-LIFR stays #1 in
+    83.7% of permutations, confirming the score is expression-dominated.
+    """
+    input:
+        os.path.join(RESULTS_DIR, "weighted_neuroimmune_network.csv")
+    output:
+        os.path.join(RESULTS_DIR, "permutation_null_prioritization_score.csv")
+    log:
+        os.path.join(LOGS_DIR, "phase4b_permutation_null.log")
+    shell:
+        "Rscript {SCRIPTS_DIR}/phase4_weighted_interactomics/02_permutation_null_prioritization.R "
         "> {log} 2>&1"
 
 
