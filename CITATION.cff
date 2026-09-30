@@ -1,0 +1,50 @@
+cff-version: 1.2.0
+message: >-
+  Si usás este pipeline, sus scripts, o los hallazgos derivados, por favor
+  citalo usando la información de este archivo. Los datos subyacentes son
+  públicos y deben citarse por separado (ver README.md, sección "Fuentes de
+  datos", y la Bibliografía de MANUSCRIPT_Neuroimmune_Interactions_LBD.md).
+type: software
+title: >-
+  Decoding the Neuroimmune Synapse in Lewy Body Dementia: a multi-omic
+  integration and verification pipeline
+authors:
+  - family-names: "[Apellido completo]"
+    given-names: Ana
+    email: anasolm26@gmail.com
+    affiliation: "[Afiliación institucional completa]"
+repository-code: "https://github.com/AnaaSol/Decoding_the_neuroimmune_synapse_LDB"
+license: LicenseRef-LICENSE
+version: 2.0.0
+date-released: "2026-09-29"
+abstract: >-
+  Pipeline computacional multi-fase que integra priorización genética (MAGMA,
+  GCTA-COJO, colocalización GWAS-eQTL, Mendelian randomization),
+  perfilado inmune de linfocitos T CD4+ en LCR (scRNA-seq+TCR-seq, dos
+  cohortes independientes), y perfilado de vulnerabilidad neuronal cortical
+  (snRNA-seq con subtipificación por capa) para poner a prueba la
+  convergencia entre riesgo genético y señalización inmune en la demencia
+  por cuerpos de Lewy. Ver PIPELINE_DIAGRAM.md y
+  MANUSCRIPT_Neuroimmune_Interactions_LBD.md para el detalle completo.
+keywords:
+  - Lewy body dementia
+  - neuroimmunology
+  - GWAS
+  - colocalization
+  - Mendelian randomization
+  - single-cell RNA-seq
+  - bioinformatics
+preferred-citation:
+  type: unpublished
+  title: >-
+    Convergencia genética tejido-específica y gradientes de severidad
+    clínica en la demencia por cuerpos de Lewy: un análisis interactómico
+    neuroinmune
+  authors:
+    - family-names: "[Apellido completo]"
+      given-names: Ana
+  year: 2026
+  notes: >-
+    Manuscrito en preparación / presentado en simposio. Ver
+    MANUSCRIPT_Neuroimmune_Interactions_LBD.md en este repositorio para el
+    texto completo con métodos, resultados y bibliografía.
