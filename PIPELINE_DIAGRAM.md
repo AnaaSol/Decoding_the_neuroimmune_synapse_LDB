@@ -117,3 +117,23 @@ flowchart TD
 2. **Inmunología (2a → 2b):** se confirma el hallazgo más sólido del estudio (expansión clonal CD4+) en dos cohortes, y se refuta específicamente el mecanismo de tráfico celular (CXCL12–CXCR4) propuesto en la publicación original, usando la cohorte que generó esa hipótesis.
 3. **Neurociencia (3 → 3b → 3c):** se resuelve por primera vez la heterogeneidad neuronal cortical, se mapean interacciones candidatas, se muestra que tres receptores **escalan con la severidad clínica**, y luego un análisis direccional (NicheNet) revierte específicamente la interpretación mecanística de OSM como impulsor de esa señal — el gradiente de LIFR es real, su atribución a OSM no lo es.
 4. **Integración (4 → 4b):** la red de priorización por expresión ubica a OSM–LIFR primero, pero la verificación por permutación muestra que ese ranking está dominado por expresión, no por genética — coherente con que el mismo par no destaque en el análisis direccional de 3c. Las tres fases (4, 4b, 3c) juntas dan una imagen más completa que cualquiera por separado: expresión alta, sin respaldo genético, sin evidencia direccional.
+5. **Atlas de colocalización (5 → 5b → 6), versión 2:** se reemplaza la pregunta de genes candidatos ("¿colocaliza MMRN1?") por una sistemática ("¿dónde actúa cada locus?"): 5 loci × 286 genes × 47 datasets de eQTL (inmunes de célula única + cerebro).
+
+```
+GWAS DCL (5 loci genome-wide)
+   │  ±500 kb, tabix remoto (235 consultas)
+   ▼
+47 datasets eQTL ──► coloc.abf (1.528 tests) ──► niveles: PP4>0,8 · LD r²≥0,5 con el líder · prior p12=5e-6
+                                                   │
+         ┌─────────────────────────────────────────┼──────────────────────────────┐
+         ▼                                         ▼                              ▼
+  SNCA: SNCA-AS1↓ (cerebro)             TMEM175: GAK↑ (cerebro)          MMRN1: solo bulk T,
+        SNCA↓ (monocitos CD14⁺)                  IDUA↓ (DLPFC, T)        no en célula única
+        CCSER1↓ (B naïve)                                                 → hallazgo previo corregido
+         │
+         ▼
+  5b: expresión de los efectores en corteza con DCL (GSE178146): sin gradiente de severidad
+  6:  réplica del gradiente LIFR/LGALS9/CD86 (GSE150696): dirección concordante, no replica
+```
+
+El resultado de la Fase 1c sobre MMRN1 queda reemplazado por el atlas: el haplotipo SNCA de DCL sí actúa en células inmunes, pero a través de *SNCA* en monocitos y *CCSER1* en linfocitos B, no de *MMRN1* en linfocitos T.

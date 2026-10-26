@@ -254,3 +254,71 @@ visualization:
   node_colors:
     T_Cell_Ligand:  "#3498db"
     Neuron_Receptor: "#e74c3c"
+
+# ----------------------------------------------------------------------------
+# Phase 5: Cell-type-resolved colocalization atlas of LBD risk loci
+# ----------------------------------------------------------------------------
+# Unbiased extension of Phase 1c: instead of 10 hand-picked genes, EVERY gene
+# with a cis-eQTL overlapping each genome-wide-significant LBD locus is tested,
+# across immune cell types (OneK1K single-cell eQTL, n~1000; BLUEPRINT) and
+# brain tissues (GTEx, ROSMAP, BrainSeq, CommonMind, Braineac2, microglia).
+# Dataset list = every 'ge'/naive dataset from those studies in the eQTL
+# Catalogue tabix_ftp_paths.tsv (selected by study, not by result).
+phase5_coloc_atlas:
+  locus_window_bp: 500000     # +/- around the GWAS lead SNP
+  gwas_p_threshold: 5.0e-8
+  min_eqtl_p: 1.0e-4          # gene must have >=1 nominal eQTL in window to be tested
+  loci:
+    - {locus: 'GBA',     chrom: 1,  lead_snp: 'rs2230288',  lead_pos: 155236376}
+    - {locus: 'BIN1',    chrom: 2,  lead_snp: 'rs6733839',  lead_pos: 127135234}
+    - {locus: 'TMEM175', chrom: 4,  lead_snp: 'rs6599388',  lead_pos: 945299}
+    - {locus: 'SNCA',    chrom: 4,  lead_snp: 'rs7680557',  lead_pos: 89842209}
+    - {locus: 'APOE',    chrom: 19, lead_snp: 'rs769449',   lead_pos: 44906745}
+  datasets:
+    - {id: 'QTD000021', study: 'BLUEPRINT', group: 'monocyte', class: 'immune', sample_size: 191, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000002/QTD000021/QTD000021.all.tsv.gz'}
+    - {id: 'QTD000026', study: 'BLUEPRINT', group: 'neutrophil', class: 'immune', sample_size: 196, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000002/QTD000026/QTD000026.all.tsv.gz'}
+    - {id: 'QTD000031', study: 'BLUEPRINT', group: 'T-cell', class: 'immune', sample_size: 167, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000002/QTD000031/QTD000031.all.tsv.gz'}
+    - {id: 'QTD000041', study: 'Braineac2', group: 'putamen', class: 'brain', sample_size: 102, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000004/QTD000041/QTD000041.all.tsv.gz'}
+    - {id: 'QTD000046', study: 'Braineac2', group: 'substantia_nigra', class: 'brain', sample_size: 65, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000004/QTD000046/QTD000046.all.tsv.gz'}
+    - {id: 'QTD000051', study: 'BrainSeq', group: 'brain', class: 'brain', sample_size: 479, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000005/QTD000051/QTD000051.all.tsv.gz'}
+    - {id: 'QTD000075', study: 'CommonMind', group: 'DLPFC_naive', class: 'brain', sample_size: 586, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000008/QTD000075/QTD000075.all.tsv.gz'}
+    - {id: 'QTD000146', study: 'GTEx', group: 'brain_amygdala', class: 'brain', sample_size: 129, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000015/QTD000146/QTD000146.all.tsv.gz'}
+    - {id: 'QTD000151', study: 'GTEx', group: 'brain_anterior_cingulate_cortex', class: 'brain', sample_size: 147, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000015/QTD000151/QTD000151.all.tsv.gz'}
+    - {id: 'QTD000156', study: 'GTEx', group: 'brain_caudate', class: 'brain', sample_size: 194, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000015/QTD000156/QTD000156.all.tsv.gz'}
+    - {id: 'QTD000161', study: 'GTEx', group: 'brain_cerebellar_hemisphere', class: 'brain', sample_size: 175, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000015/QTD000161/QTD000161.all.tsv.gz'}
+    - {id: 'QTD000166', study: 'GTEx', group: 'brain_cerebellum', class: 'brain', sample_size: 209, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000015/QTD000166/QTD000166.all.tsv.gz'}
+    - {id: 'QTD000171', study: 'GTEx', group: 'brain_cortex', class: 'brain', sample_size: 205, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000015/QTD000171/QTD000171.all.tsv.gz'}
+    - {id: 'QTD000176', study: 'GTEx', group: 'brain_frontal_cortex', class: 'brain', sample_size: 175, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000015/QTD000176/QTD000176.all.tsv.gz'}
+    - {id: 'QTD000181', study: 'GTEx', group: 'brain_hippocampus', class: 'brain', sample_size: 165, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000015/QTD000181/QTD000181.all.tsv.gz'}
+    - {id: 'QTD000186', study: 'GTEx', group: 'brain_hypothalamus', class: 'brain', sample_size: 170, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000015/QTD000186/QTD000186.all.tsv.gz'}
+    - {id: 'QTD000191', study: 'GTEx', group: 'brain_nucleus_accumbens', class: 'brain', sample_size: 202, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000015/QTD000191/QTD000191.all.tsv.gz'}
+    - {id: 'QTD000196', study: 'GTEx', group: 'brain_putamen', class: 'brain', sample_size: 170, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000015/QTD000196/QTD000196.all.tsv.gz'}
+    - {id: 'QTD000201', study: 'GTEx', group: 'brain_spinal_cord', class: 'brain', sample_size: 126, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000015/QTD000201/QTD000201.all.tsv.gz'}
+    - {id: 'QTD000206', study: 'GTEx', group: 'brain_substantia_nigra', class: 'brain', sample_size: 114, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000015/QTD000206/QTD000206.all.tsv.gz'}
+    - {id: 'QTD000356', study: 'GTEx', group: 'blood', class: 'immune', sample_size: 670, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000015/QTD000356/QTD000356.all.tsv.gz'}
+    - {id: 'QTD000434', study: 'ROSMAP', group: 'brain_naive', class: 'brain', sample_size: 560, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000025/QTD000434/QTD000434.all.tsv.gz'}
+    - {id: 'QTD000559', study: 'Young_2019', group: 'microglia_naive', class: 'microglia', sample_size: 104, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000031/QTD000559/QTD000559.all.tsv.gz'}
+    - {id: 'QTD000606', study: 'OneK1K', group: 'B_intermediate', class: 'immune', sample_size: 977, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000606/QTD000606.all.tsv.gz'}
+    - {id: 'QTD000607', study: 'OneK1K', group: 'B_memory', class: 'immune', sample_size: 981, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000607/QTD000607.all.tsv.gz'}
+    - {id: 'QTD000608', study: 'OneK1K', group: 'B_naive', class: 'immune', sample_size: 980, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000608/QTD000608.all.tsv.gz'}
+    - {id: 'QTD000609', study: 'OneK1K', group: 'CD14_Mono', class: 'immune', sample_size: 959, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000609/QTD000609.all.tsv.gz'}
+    - {id: 'QTD000610', study: 'OneK1K', group: 'CD16_Mono', class: 'immune', sample_size: 930, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000610/QTD000610.all.tsv.gz'}
+    - {id: 'QTD000611', study: 'OneK1K', group: 'CD4_CTL', class: 'immune', sample_size: 946, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000611/QTD000611.all.tsv.gz'}
+    - {id: 'QTD000612', study: 'OneK1K', group: 'CD4_Naive', class: 'immune', sample_size: 981, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000612/QTD000612.all.tsv.gz'}
+    - {id: 'QTD000613', study: 'OneK1K', group: 'CD4_TCM', class: 'immune', sample_size: 981, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000613/QTD000613.all.tsv.gz'}
+    - {id: 'QTD000614', study: 'OneK1K', group: 'CD4_TEM', class: 'immune', sample_size: 981, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000614/QTD000614.all.tsv.gz'}
+    - {id: 'QTD000615', study: 'OneK1K', group: 'CD8_Naive', class: 'immune', sample_size: 980, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000615/QTD000615.all.tsv.gz'}
+    - {id: 'QTD000616', study: 'OneK1K', group: 'CD8_TCM', class: 'immune', sample_size: 977, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000616/QTD000616.all.tsv.gz'}
+    - {id: 'QTD000617', study: 'OneK1K', group: 'CD8_TEM', class: 'immune', sample_size: 981, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000617/QTD000617.all.tsv.gz'}
+    - {id: 'QTD000618', study: 'OneK1K', group: 'HSPC', class: 'immune', sample_size: 705, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000618/QTD000618.all.tsv.gz'}
+    - {id: 'QTD000619', study: 'OneK1K', group: 'MAIT', class: 'immune', sample_size: 900, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000619/QTD000619.all.tsv.gz'}
+    - {id: 'QTD000620', study: 'OneK1K', group: 'NK', class: 'immune', sample_size: 981, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000620/QTD000620.all.tsv.gz'}
+    - {id: 'QTD000621', study: 'OneK1K', group: 'NK_CD56bright', class: 'immune', sample_size: 952, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000621/QTD000621.all.tsv.gz'}
+    - {id: 'QTD000622', study: 'OneK1K', group: 'NK_Proliferating', class: 'immune', sample_size: 696, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000622/QTD000622.all.tsv.gz'}
+    - {id: 'QTD000623', study: 'OneK1K', group: 'Plasmablast', class: 'immune', sample_size: 795, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000623/QTD000623.all.tsv.gz'}
+    - {id: 'QTD000624', study: 'OneK1K', group: 'Platelet', class: 'immune', sample_size: 534, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000624/QTD000624.all.tsv.gz'}
+    - {id: 'QTD000625', study: 'OneK1K', group: 'Treg', class: 'immune', sample_size: 981, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000625/QTD000625.all.tsv.gz'}
+    - {id: 'QTD000626', study: 'OneK1K', group: 'cDC2', class: 'immune', sample_size: 869, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000626/QTD000626.all.tsv.gz'}
+    - {id: 'QTD000627', study: 'OneK1K', group: 'dnT', class: 'immune', sample_size: 678, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000627/QTD000627.all.tsv.gz'}
+    - {id: 'QTD000628', study: 'OneK1K', group: 'gdT', class: 'immune', sample_size: 975, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000628/QTD000628.all.tsv.gz'}
+    - {id: 'QTD000629', study: 'OneK1K', group: 'pDC', class: 'immune', sample_size: 639, url: 'ftp://ftp.ebi.ac.uk/pub/databases/spot/eQTL/sumstats/QTS000038/QTD000629/QTD000629.all.tsv.gz'}

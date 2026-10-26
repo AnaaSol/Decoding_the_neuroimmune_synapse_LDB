@@ -13,9 +13,21 @@
 
 Pipeline computacional de cuatro fases (más tres extensiones) que integra GWAS, scRNA-seq con perfilado de repertorio TCR, y snRNA-seq para poner a prueba, con verificación cruzada entre cohortes y métodos, si el riesgo genético de la demencia por cuerpos de Lewy (DCL) converge con señales inmunes mediadas por linfocitos T CD4+ hacia neuronas corticales vulnerables.
 
-Para el flujo completo fase por fase, ver **[`PIPELINE_DIAGRAM.md`](PIPELINE_DIAGRAM.md)**. Para la redacción científica completa, ver **[`MANUSCRIPT_Neuroimmune_Interactions_LBD.md`](MANUSCRIPT_Neuroimmune_Interactions_LBD.md)**.
+Para el flujo completo fase por fase, ver **[`PIPELINE_DIAGRAM.md`](PIPELINE_DIAGRAM.md)**. Para la redacción científica completa, ver **[`MANUSCRIPT_Coloc_Atlas_LBD.md`](MANUSCRIPT_Coloc_Atlas_LBD.md)**, la versión actual (versión 2), centrada en el atlas de colocalización. La versión 1, de genes candidatos ([`MANUSCRIPT_Neuroimmune_Interactions_LBD.md`](MANUSCRIPT_Neuroimmune_Interactions_LBD.md)) se conserva sin cambios.
 
 ## Hallazgos principales (verificados contra archivos de salida, septiembre 2026)
+
+**Versión 2: atlas de colocalización (Fases 5–6, 30/09/2026)**
+
+A. **Atlas no sesgado:** 1.528 tests coloc.abf (5 loci genome-wide × 286 genes × 47 datasets del eQTL Catalogue: 24 tipos celulares de célula única de OneK1K, BLUEPRINT, sangre, microglía y 18 tejidos cerebrales). Seis pares locus–gen colocalizan con la señal líder del GWAS (PP4>0,8 y LD r²≥0,5 con el SNP líder).
+B. **Locus SNCA (haplotipo específico de DCL, distinto de la señal 3′ de Parkinson, r²≤0,20):** el alelo de riesgo disminuye *SNCA-AS1* en 3 tejidos cerebrales (PP4 hasta 0,95), *SNCA* en monocitos CD14⁺ (OneK1K, PP4=0,87) y *CCSER1* en linfocitos B naïve (PP4=0,93).
+C. **Locus TMEM175:** el alelo de riesgo aumenta *GAK* en corteza (ROSMAP, PP4=0,98) y disminuye *IDUA* (DLPFC, PP4=0,99).
+D. **Corrección del hallazgo MMRN1 (#4 y #7 abajo):** colocaliza solo en un dataset bulk de linfocitos T. Ninguno de los 24 datasets de célula única lo testea, porque no se expresa, y en LCR se detecta en ≤0,65% de las células T. Ya no se presenta como hallazgo principal.
+F. **SuSiE-coloc (fine-mapping multi-señal) de todas las colocalizaciones fuertes:** el locus SNCA tiene una única señal GWAS (credible set con rs7680557). Se confirman *SNCA-AS1* (cerebro, PP4 0,88–0,91) y *CCSER1* (B naïve, 0,87). En TMEM175, SuSiE no tiene potencia para formar credible sets, así que *GAK*/*IDUA* quedan sostenidos solo por coloc.abf. El SuSiE previo de MMRN1 (9 credible sets) era un artefacto de alineación de alelos.
+G. **Chequeo bibliográfico:** *SNCA-AS1* en cerebro (Chia 2021; Junn 2026) y *GAK* en TMEM175 (Alvarado 2023) son **réplicas**. No encontramos trabajos previos con eQTL inmunes de célula única en DCL: *SNCA* en monocitos y *CCSER1* en linfocitos B son el aporte nuevo.
+E. **Réplica del gradiente LIFR/LGALS9/CD86 (#5) en GSE150696:** la dirección es concordante en los tres receptores, pero **no se replica** con el umbral pre-especificado (el mejor, CD86, tiene p unilateral=0,048 frente a 0,017).
+
+**Versión SAJIB (se conserva; los puntos 4, 5 y 7 quedan matizados por C–E):**
 
 1. **Expansión clonal de linfocitos T CD4+ en LCR** — confirmada en dos cohortes independientes (GSE161192, GSE141578). El hallazgo más sólido del estudio.
 2. **BCAM descartado formalmente como gen de riesgo independiente** — MAGMA genome-wide (18.523 genes) + GCTA-COJO condicional muestran que su asociación es enteramente atribuible al desequilibrio de ligamiento con el locus APOE (p condicional: 6,6×10⁻¹³ → 0,56).
@@ -44,6 +56,10 @@ Para el flujo completo fase por fase, ver **[`PIPELINE_DIAGRAM.md`](PIPELINE_DIA
 | **3c — Actividad ligando dirigida** | NicheNet (entorno conda aislado, ver Limitaciones) | `scripts/phase3_neuronal_vulnerability/06` |
 | **4 — Red de priorización integrada** | Score heurístico expresión × riesgo genético (explícitamente no causal) | `scripts/phase4_weighted_interactomics/01` |
 | **4b — Verificación por permutación** | Null empírico del ranking (10.000 permutaciones) | `scripts/phase4_weighted_interactomics/02` |
+| **5 — Atlas de colocalización** | coloc.abf de todos los genes × 5 loci × 47 datasets de eQTL; niveles por LD con el líder y prior conservador | `scripts/phase5_coloc_atlas/01-04` |
+| **5a — SuSiE-coloc** | Fine-mapping multi-señal de cada colocalización fuerte (LD 1000G alineado a A1) | `scripts/phase5_coloc_atlas/07` |
+| **5b — Genes efectores en corteza** | Expresión por tipo celular y tendencia de severidad (GSE178146); recuperación de genes filtrados por QC | `scripts/phase5_coloc_atlas/05, 05a, 06` |
+| **6 — Réplica independiente** | Gradiente receptorial en GSE150696 (array, BA9, limma) | `scripts/phase6_replication/01` |
 
 Todo el pipeline está orquestado por `Snakefile` + `config/pipeline_config.yaml` (única fuente de verdad para rutas, umbrales y etiquetas — ningún valor debería estar hardcodeado en los scripts en producción).
 
@@ -70,6 +86,8 @@ snakemake validate --cores 1
 | snRNA-seq corteza | GSE178146 | Feleke et al. 2021, *Acta Neuropathol* 142:449-474 | Fase 3/3b — 28 muestras, corteza cingulada anterior (no sustancia nigra) |
 | eQTL corteza | GTEx v8 (vía eQTL Catalogue, QTD000151) | — | Fase 1c |
 | eQTL células T CD4+ | BLUEPRINT (vía eQTL Catalogue, QTD000031) | — | Fase 1c |
+| eQTL atlas (47 datasets) | eQTL Catalogue (OneK1K, BLUEPRINT, GTEx, ROSMAP, CommonMind, BrainSeq, Braineac2, Young 2019) | Kerimov et al. 2021 | Fase 5 — lista completa en `config/pipeline_config.yaml` |
+| Réplica corteza (array) | GSE150696 | — | Fase 6 — Control 9 / EPD 12 / DCL 12 / EA 9 |
 | Gene sets inmunes | KEGG (hsa04659, hsa04660, hsa04060, hsa04062, hsa04630) | — | Fase 1d |
 | Referencia LD | 1000 Genomes Phase 3, EUR | — | Fase 1/1b (GRCh37/hg19 — atención al desajuste de build, ver Métodos) |
 

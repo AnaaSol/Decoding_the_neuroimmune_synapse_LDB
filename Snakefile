@@ -75,6 +75,12 @@ rule all:
         os.path.join(RESULTS_DIR, "plots", "integrative_prioritization_network.pdf"),
         # Phase 4b (permutation null)
         os.path.join(RESULTS_DIR, "permutation_null_prioritization_score.csv"),
+        # Phase 5 (cell-type-resolved colocalization atlas)
+        os.path.join(DATA_DIR, "coloc_atlas", "results", "coloc_atlas_strong_PP4gt0.8.tsv"),
+        os.path.join(DATA_DIR, "coloc_atlas", "effector_expression", "effector_severity_trend_by_celltype.csv"),
+        os.path.join(DATA_DIR, "coloc_atlas", "susie", "susie_coloc_summary.tsv"),
+        # Phase 6 (independent replication, GSE150696)
+        os.path.join(DATA_DIR, "replication_GSE150696", "receptor_replication_GSE150696.csv"),
 
 
 # ── PHASE 1: Genetic Prioritization ─────────────────────────────────────────
@@ -623,6 +629,111 @@ rule permutation_null_prioritization:
     shell:
         "Rscript {SCRIPTS_DIR}/phase4_weighted_interactomics/02_permutation_null_prioritization.R "
         "> {log} 2>&1"
+
+
+# ── PHASE 5: Cell-type-resolved colocalization atlas ────────────────────────
+
+ATLAS_DATASETS = [d["id"] for d in config["phase5_coloc_atlas"]["datasets"]]
+ATLAS_LOCI = [l["locus"] for l in config["phase5_coloc_atlas"]["loci"]]
+
+rule fetch_atlas_eqtl:
+    """
+    Remote tabix region queries (lead SNP +/- 500kb) against the EBI eQTL
+    Catalogue for every dataset in phase5_coloc_atlas.datasets -- all genes,
+    no bulk download. Sequential + spaced, per EBI's access policy.
+    """
+    output:
+        expand(os.path.join(DATA_DIR, "coloc_atlas", "eqtl", "{{dataset}}", "{locus}.tsv.gz"), locus=ATLAS_LOCI)
+    log:
+        os.path.join(LOGS_DIR, "phase5_fetch_atlas_{dataset}.log")
+    resources:
+        ebi_tabix=1
+    shell:
+        "python3 {SCRIPTS_DIR}/phase5_coloc_atlas/01_fetch_atlas_eqtl.py {wildcards.dataset} > {log} 2>&1"
+
+rule extract_atlas_gwas:
+    input:
+        os.path.join(DATA_DIR, "LBD_GWAS_harmonised.tsv.gz")
+    output:
+        expand(os.path.join(DATA_DIR, "coloc_atlas", "gwas", "{locus}.tsv"), locus=ATLAS_LOCI)
+    log:
+        os.path.join(LOGS_DIR, "phase5_extract_atlas_gwas.log")
+    shell:
+        "python3 {SCRIPTS_DIR}/phase5_coloc_atlas/02_extract_atlas_gwas.py > {log} 2>&1"
+
+rule run_coloc_atlas:
+    """coloc.abf for every dataset x locus x gene with a nominal eQTL (p<1e-4)."""
+    input:
+        gwas=rules.extract_atlas_gwas.output,
+        eqtl=expand(os.path.join(DATA_DIR, "coloc_atlas", "eqtl", "{dataset}", "{locus}.tsv.gz"),
+                    dataset=ATLAS_DATASETS, locus=ATLAS_LOCI)
+    output:
+        os.path.join(DATA_DIR, "coloc_atlas", "results", "coloc_atlas_all.tsv")
+    log:
+        os.path.join(LOGS_DIR, "phase5_run_coloc_atlas.log")
+    shell:
+        "Rscript {SCRIPTS_DIR}/phase5_coloc_atlas/03_run_coloc_atlas.R > {log} 2>&1"
+
+rule summarize_coloc_atlas:
+    """Symbols (GENCODE v39), LD-to-lead tiering (1000G EUR), heatmap."""
+    input:
+        os.path.join(DATA_DIR, "coloc_atlas", "results", "coloc_atlas_all.tsv"),
+        os.path.join(DATA_DIR, "reference", "gencode_v39_genes.tsv")
+    output:
+        os.path.join(DATA_DIR, "coloc_atlas", "results", "coloc_atlas_strong_PP4gt0.8.tsv"),
+        os.path.join(DATA_DIR, "coloc_atlas", "results", "coloc_atlas_by_gene.tsv"),
+        os.path.join(DATA_DIR, "coloc_atlas", "results", "coloc_atlas_heatmap.pdf")
+    log:
+        os.path.join(LOGS_DIR, "phase5_summarize_coloc_atlas.log")
+    shell:
+        "Rscript {SCRIPTS_DIR}/phase5_coloc_atlas/04_summarize_coloc_atlas.R > {log} 2>&1"
+
+rule effector_genes_in_lbd_cortex:
+    """Atlas effector genes: cell-type expression + severity trend in GSE178146."""
+    input:
+        os.path.join(DATA_DIR, "coloc_atlas", "results", "coloc_atlas_strong_PP4gt0.8.tsv"),
+        os.path.join(DATA_DIR, "GSE178146_processed", "GSE178146_integrated.rds")
+    output:
+        os.path.join(DATA_DIR, "coloc_atlas", "effector_expression", "effector_expression_by_celltype.csv"),
+        os.path.join(DATA_DIR, "coloc_atlas", "effector_expression", "effector_severity_trend_by_celltype.csv")
+    log:
+        os.path.join(LOGS_DIR, "phase5_effector_genes_in_lbd_cortex.log")
+    shell:
+        "Rscript {SCRIPTS_DIR}/phase5_coloc_atlas/05_effector_genes_in_lbd_cortex.R > {log} 2>&1"
+
+rule susie_coloc_atlas:
+    """SuSiE fine-mapping + coloc.susie for every PP4>0.8 atlas hit (1000G EUR LD, allele-aligned to bim A1)."""
+    input:
+        os.path.join(DATA_DIR, "coloc_atlas", "results", "coloc_atlas_strong_PP4gt0.8.tsv")
+    output:
+        os.path.join(DATA_DIR, "coloc_atlas", "susie", "susie_coloc_summary.tsv")
+    log:
+        os.path.join(LOGS_DIR, "phase5_susie_coloc_atlas.log")
+    shell:
+        "Rscript {SCRIPTS_DIR}/phase5_coloc_atlas/07_susie_coloc_atlas.R > {log} 2>&1"
+
+
+# ── PHASE 6: Independent replication (GSE150696, bulk BA9 array) ────────────
+
+rule fetch_gse150696:
+    output:
+        os.path.join(DATA_DIR, "GSE150696_raw", "GSE150696_series_matrix.txt.gz"),
+        os.path.join(DATA_DIR, "GSE150696_raw", "GPL17585_table.txt.gz")
+    shell:
+        "curl -s -o {output[0]} https://ftp.ncbi.nlm.nih.gov/geo/series/GSE150nnn/GSE150696/matrix/GSE150696_series_matrix.txt.gz && "
+        "curl -s 'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GPL17585&targ=self&form=text&view=data' | gzip > {output[1]}"
+
+rule replicate_receptor_trend_gse150696:
+    """Pre-specified replication of the Phase 3b LIFR/LGALS9/CD86 severity trend."""
+    input:
+        rules.fetch_gse150696.output,
+        os.path.join(DATA_DIR, "GSE178146_processed", "receptor_doseresponse_pseudobulk.csv")
+    output:
+        os.path.join(DATA_DIR, "replication_GSE150696", "receptor_replication_GSE150696.csv")
+    log:
+        os.path.join(LOGS_DIR, "phase6_replication_GSE150696.log")
+    shell:
+        "Rscript {SCRIPTS_DIR}/phase6_replication/01_GSE150696_receptor_replication.R > {log} 2>&1"
 
 
 # ── UTILITY: Validate pipeline outputs ──────────────────────────────────────
